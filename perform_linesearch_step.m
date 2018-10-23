@@ -1,4 +1,4 @@
-function [aa,bb] = perform_linesearch_step(fc,Ut,vt,blasso)
+function [mu,nu] = perform_linesearch_step(fc,Ut,vt,blasso)
 %PERFORM_LINESEARCH_STEP linesearch step in main algorithm fwsdp
 %   [mu,nu] = PERFORM_LINESEARCH_STEP(fc,U,v,blasso) returns the solution
 %   of min_(mu,nu) f( mu*(U*U') + nu*(v*v') )
@@ -83,7 +83,9 @@ end
 % CVX check
 A = [cxx, cxy/2; cxy/2, cyy];
 B = [cx, cy];
+warning off
 S = sqrtm(A);
+warning on
 %cvx_solver mosek
 cvx_precision high
 cvx_begin quiet
@@ -97,8 +99,10 @@ cvx_end
 aa = X(1);
 bb = X(2);
 
-% abs(aa-mu)/abs(aa)
-% abs(bb-nu)/abs(nu)
+
+if abs(aa-mu) > 1e-06 || abs(bb-nu) > 1e-06
+    fprintf('aa: %.5d, mu: %.5d | bb: %.5d, nu: %.5d\n', aa, mu, bb, nu);
+end
 
 if abs(a-mu) > 1e-12 || abs(b-nu) > 1e-12
    warning('pb precision ls?');

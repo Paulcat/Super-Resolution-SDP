@@ -33,9 +33,9 @@ c22 = C0/2/la * normH( A(zv) )^2     +    C0/2/rho * ...
 c12 = C0/la * real( dotpH( zU, AS( A(zv) ) ) ) + C0/rho * ( norm(U1'*v1, 'fro')^2 ...
     - real( sum( Dnumel1(n) .* conj( Tproj1(U1) ) .* Tproj1(v1) ) ) );
 
-c1 = C0 * ( tauU + norm(U1,'fro')^2/n - 1/la * real( dotpH( y, A(zU) ) ) );
+c1 = C0 * ( 1/2*(tauU + norm(U1,'fro')^2/n) - 1/la * real( dotpH( y, A(zU) ) ) );
 
-c2 = C0 * ( tauv + norm(v1,'fro')^2/n - 1/la * real( dotpH( y, A(zv) ) ) );
+c2 = C0 * ( 1/2*(tauv + norm(v1,'fro')^2/n) - 1/la * real( dotpH( y, A(zv) ) ) );
 
 
 end

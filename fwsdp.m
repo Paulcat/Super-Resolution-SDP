@@ -34,9 +34,12 @@ m = n; % hierarchy order
 
 
 
-F = blasso.obj;
-g = blasso.grad;
-G = @(U) 2 * g(U,U);
+F  = blasso.obj  ;
+g  = blasso.grad ;
+G  = @(U) 2 * g (U,U);
+
+
+
 
 
 % Display infos
@@ -63,22 +66,22 @@ end
 
 
 
+
+
 % *** 0. Initialization ***
 % -------------------------
 tic;
-U0     = zeros( prod(m) + 1, 1 );
-%E0     = fobj(U0,y,fc,lambda,rho,gam,A);
-E0     = F(U0);
-U      = U0;
-%U1     = reshape( U(1:end-1,:), [m, size(U,2)] );
-E      = E0;
+U0     = zeros( prod(m) + 1, 1 ); U = U0;
+E0     = F(U0); E = E0;
 D0     = 2 * E0;
 niter  = 0;
-v0     = ones(prod(n)+1, 1) / sqrt(prod(n)+1); % inital vector for power iterations
-n_PI    = [];
-n_BFGS  = [];
+v0     = ones(prod(n)+1, 1) / sqrt(prod(n)+1); % initial vector for PI
+n_PI   = [];
+n_BFGS = [];
 
 sqinvOm = [ n(1) * ones(prod(n), 1); 1 ]; % n(1) is a HACK: howto when dimensions are not equal??
+
+
 
 
 
@@ -87,15 +90,13 @@ sqinvOm = [ n(1) * ones(prod(n), 1); 1 ]; % n(1) is a HACK: howto when dimension
 % *** 1. LMO step ***
 % -------------------
 % precompute gradient for lmo
-%[~,dzU] = fgrad(U,h0,fc,y,lambda,rho,gam,A,AS);
-%TU    = Tproj2( MatToTen(U(1:end-1,:), m) );
-%GfU = @(h) sqinvOm .* fgrad_pre(U, sqinvOm .* h,dzU,TU,fc,y,lambda,rho,gam);
-GfU = blasso.grad0U_handle(U);
+GfU = blasso.gradU_handle(U);
 GLMO = @(h) sqinvOm .* GfU( sqinvOm .* h );
 
 time1 = toc;
 [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
 time1 = toc - time1;
+
 
 if eValm > 0
     warning('Minimal eigenvalue is positive');
@@ -104,11 +105,10 @@ end
 eVecm = sqrt(D0) * (sqinvOm .* eVecm);
 
 % duality gap
-% UGfU = U'     * fgrad(U,U,    fc,y,lambda,rho,gam,A,AS);
-% eGfe = eVecm' * fgrad(U,eVecm,fc,y,lambda,rho,gam,A,AS);
 UGfU = U'     * g(U, U    );
 eGfe = eVecm' * g(U, eVecm);
 gap    = real( trace(UGfU) - eGfe );
+
 
 
 
@@ -119,20 +119,28 @@ if strcmp(display, 'on')
     fprintf('%-2d  %-+.4e  %-+.2e  -\t -\t -\n', niter, E(end), gap)
 end
 
-niter = 0;
+
+
+figure;
 while (gap >= tol && niter < maxIter)
     
     n_PI = [n_PI; infos.niter];
+
     
     % *** 2. Line-search ***
     % ----------------------
     [mu,nu] = perform_linesearch_step(fc,U,eVecm,blasso);
     
     
+    
     % *** 3. FW update ***
     % --------------------
     U = [sqrt(mu)*U, sqrt(nu)*eVecm];
-    %isToeplitz(fc,U(1:end-1,:))
+    E = [E;F(U)];
+    
+    
+    % TODO: est-ce que si à une étape de l'algo on satisfait al contrainte
+    % toeplitz, ca reste vrai jusqu'à la fin de l'algo??
     
     
     % *** 4. BFGS step ***
@@ -141,12 +149,12 @@ while (gap >= tol && niter < maxIter)
     [U,flag,output] = perform_bfgs_step(U,F,G,opt_bfgs);
     n_BFGS = [n_BFGS; output.iterations];
     time2 = toc-time2;
-    
-    %isToeplitz(fc,U(1:end-1,:))
+    %n_BFGS = 0;
+
     
     % One iteration done: update monitors
     niter = niter + 1;
-    E     = [E; F(U)];
+    E = [E;F(U)];
     
     % Display infos
     % -------------
@@ -155,13 +163,16 @@ while (gap >= tol && niter < maxIter)
     end
     % -------------
     
+    plot(log10(E)); drawnow;
+    
     
     % *** 1. LMO step ***
     % -------------------
-    GfU = blasso.gradU_handle(U);
+    GfU = blasso.gradU_handle (U);
+    GLMO = @(h) sqinvOm .* GfU( sqinvOm .* h );
     
     time1 = toc;
-    [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GfU, v0);
+    [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
     time1 = toc - time1;
     
     if eValm > 0
@@ -170,6 +181,7 @@ while (gap >= tol && niter < maxIter)
     end
     eVecm = sqrt(D0) * (sqinvOm .* eVecm);
     
+    
     UGfU = U'     * g(U, U    );
     eGfe = eVecm' * g(U, eVecm);
     gap    = real( trace(UGfU) - eGfe );
@@ -177,10 +189,15 @@ while (gap >= tol && niter < maxIter)
 end
 time = toc;
 
+
+
 info.E = [E; F(U)];
 info.time = time;
 info.nPI = sum(n_PI);
 info.nBFGS = sum(n_BFGS);
+
+
+
 
 if strcmp(display, 'on')
     fprintf('-------------------------------------------------------------\n')
@@ -207,6 +224,6 @@ opt_bfgs.Damped          = 0;
 end
 
 function opt_lmo = set_lmo_options(options)
-opt_lmo.tol     = getoptions(options, 'lmoTpm', 1e-16);
+opt_lmo.tol     = getoptions(options, 'lmoTol', 1e-16);
 opt_lmo.maxIter = getoptions(options, 'lmoMaxIter', 1000); 
 end

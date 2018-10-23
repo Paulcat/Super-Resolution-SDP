@@ -1,4 +1,4 @@
-function [A,AS,w,Amat,ASmat] = compute_A(fc,model)
+function [A,AS,Amat,ASmat] = compute_A(fc,model)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -28,11 +28,11 @@ switch model.problem
         AS = @(p) conj(w(:)) .* (ASmat * p(:));
         
     case 'foveation'
-%         Xg  = compute_subsampling_grid(fc,model);
-%         L   = length(Xg);
+        Xg  = compute_subsampling_grid(fc,model);
+        L   = length(Xg);
         
-        Xg = linspace(0,1,512);
-        L = length(Xg);
+%         Xg = linspace(0,1,512);
+%         L = length(Xg);
         
         sig = getoptions(model, 'kparam', @(x)(0.001 + abs(x)));
         
@@ -41,9 +41,10 @@ switch model.problem
         X = (0:(N-1))'/N;
         Amat = zeros(L,2*fc+1);
         
+        %modh = @(x) x .* (x<=1/2 && x>=
+        
         for j=1:L
-            Xj = X;
-            phij  = exp( -(Xj(:)-Xg(j)).^2 ./ (2*sig(Xj(:)).^2) );
+            phij  = exp( -(X(:)     - Xg(j)).^2 ./ (2*sig(X(:)    ).^2) );
             Fphij = 1/N * fftshift(fft(phij)); % fft approximation (in the spirit of Riemann sum)
             Fphij = Fphij( (N/2 + 1 - fc) : (N/2 + 1 + fc) );
             % normalize?
@@ -55,8 +56,7 @@ switch model.problem
         
         A  = @(z) Amat  * z(:);
         AS = @(p) ASmat * p(:);
-        
-        w = 0; %TODO!        
+            
     otherwise
         error('TODO');
 end

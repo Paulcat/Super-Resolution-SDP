@@ -1,12 +1,10 @@
 function [mu,nu] = perform_linesearch_step(fc,Ut,vt,blasso)
-%PERFORM_LINESEARCH_STEP linesearch step in main algorithm fwsdp
+%PERFORM_LINESEARCH_STEP linesearch step in ffw algorithm
 %   [mu,nu] = PERFORM_LINESEARCH_STEP(fc,U,v,blasso) returns the solution
 %   of min_(mu,nu) f( mu*(U*U') + nu*(v*v') )
-%
-%   See also FWSDP
 
 
-[cxx, cyy, cxy, cx, cy] = compute_ls_coefficients(fc,Ut,vt,blasso);
+[cxx, cyy, cxy, cx, cy] = lsCoeffs_sr(fc,Ut,vt,blasso);
 
 denom = 4*cxx*cyy - cxy^2;
 num1  = cxy*cy - 2*cyy*cx;
@@ -100,8 +98,18 @@ aa = X(1);
 bb = X(2);
 
 
-if abs(aa-mu) > 1e-06 || abs(bb-nu) > 1e-06
-    fprintf('aa: %.5d, mu: %.5d | bb: %.5d, nu: %.5d\n', aa, mu, bb, nu);
+if abs(aa-mu) > 1e-05 || abs(bb-nu) > 1e-05
+    %fprintf('aa: %.5d, mu: %.5d | bb: %.5d, nu: %.5d\n', aa, mu, bb, nu);
+%     val1 = cxx*aa^2 + cyy*bb^2 + cxy*aa*bb + cx*aa + cy*bb;
+%     val2 = cxx*mu^2 + cyy*nu^2 + cxy*mu*nu + cx*mu + cy*nu;
+%     fprintf( [ '\t Linesearch disagree: who is the lowest?\n' ...
+%                '\t me:\t %d\n\t cvx:\t %d\n' ], val1, val2 );
+    f = compute_fobj(fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.A);
+    test1 = f([aa*Ut bb*vt]);
+    test2 = f([mu*Ut nu*vt]);
+    if test1 < test2
+        warning('debugging: cvx did best in the linesearch');
+    end
 end
 
 if abs(a-mu) > 1e-12 || abs(b-nu) > 1e-12

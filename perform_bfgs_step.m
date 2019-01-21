@@ -1,8 +1,6 @@
 function [U,exitflag,output] = perform_bfgs_step(U,F,G,options)
-%PERFORM_BFGS_STEP bfgs step in main algorithm fwsdp
+%PERFORM_BFGS_STEP bfgs step in ffw algorithm
 %   Minimize the non-convex function F(U). G is the gradient wrt U
-%
-%   See also FWSDP
 
 deal2 = @(varargin) deal(varargin{1:nargout});
 

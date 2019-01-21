@@ -4,7 +4,7 @@ function [mu,nu] = perform_linesearch_step(fc,Ut,vt,blasso)
 %   of min_(mu,nu) f( mu*(U*U') + nu*(v*v') )
 
 
-[cxx, cyy, cxy, cx, cy] = lsCoeffs_sr(fc,Ut,vt,blasso);
+[cxx, cyy, cxy, cx, cy] = lsCoeffs(fc,Ut,vt,blasso);
 
 denom = 4*cxx*cyy - cxy^2;
 num1  = cxy*cy - 2*cyy*cx;

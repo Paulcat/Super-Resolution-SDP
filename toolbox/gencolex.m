@@ -6,11 +6,9 @@ function [mom_colex] = gencolex(fc)
 %   dimension.
 %
 %   NOTE: analogous of genpow, which does the same for the graded
-%   lexicographic order. Basically, gencolex generates the set \Om_{2l}.
+%   lexicographic order.
 
 d = numel(fc);
-
-%msgbox('TODO: lexicographic or colexicograhic changes nothing?')
 
 switch d
     case 1

@@ -35,14 +35,14 @@ end
 
 eVal1 = v'*Gprod(v); % largest (in absolute value) eigen value of the gradient
 
-if eVal1 < 0 % then eVal1 is the lowest eigenvalue
+if eVal1 < 0 % eVal1 is the lowest eigenvalue
     eVal = eVal1;
     eVec = v;
 
     
     
 
-else % then eVal1 is the largest eigenvalue, and the lowest can be find using PI on (G - eVal1*Id)
+else % eVal1 is the largest eigenvalue: the lowest is found using PI on (G - eVal1*Id)
     v = v0;
     cos_th = 0.5;
     

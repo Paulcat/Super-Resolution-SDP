@@ -14,7 +14,7 @@ if denom == 0
     if cxx == 0
         mu = 0;
         nu = min(1, max(0, -cy/(2*cyy)));
-    else    % HACK?
+    else
         mu = min(1, max(0, -cx/(2*cxx)));
         nu = 0;
     end
@@ -51,8 +51,8 @@ end
 if denom == 0
     if cxx == 0
         a = 0;
-        b = min(1, max(0, -cy/(2*cyy)));    %HACK!
-    else                %HACK!
+        b = min(1, max(0, -cy/(2*cyy)));
+    else
         a = min(1, max(0, -cx/(2*cxx)));
         b = 0;
     end
@@ -99,12 +99,7 @@ bb = X(2);
 
 
 if abs(aa-mu) > 1e-05 || abs(bb-nu) > 1e-05
-    %fprintf('aa: %.5d, mu: %.5d | bb: %.5d, nu: %.5d\n', aa, mu, bb, nu);
-%     val1 = cxx*aa^2 + cyy*bb^2 + cxy*aa*bb + cx*aa + cy*bb;
-%     val2 = cxx*mu^2 + cyy*nu^2 + cxy*mu*nu + cx*mu + cy*nu;
-%     fprintf( [ '\t Linesearch disagree: who is the lowest?\n' ...
-%                '\t me:\t %d\n\t cvx:\t %d\n' ], val1, val2 );
-    f = compute_fobj(fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.A);
+    f = fobj(fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.A);
     test1 = f([aa*Ut bb*vt]);
     test2 = f([mu*Ut nu*vt]);
     if test1 < test2

@@ -4,9 +4,6 @@ function [mom_colex] = gencolex(fc)
 %
 %   fc: vector (size d) of maximum orders (in absolute value), in each
 %   dimension.
-%
-%   NOTE: analogous of genpow, which does the same for the graded
-%   lexicographic order.
 
 d = numel(fc);
 

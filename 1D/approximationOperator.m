@@ -1,21 +1,29 @@
 function [A,As,S,Amat,Asmat] = approximationOperator(fc,model)
-%APPROXIMATIONOPERATOR Compute the Fourier approximation matrix A
-%   [A,AS] = APPROXIMATIONOPERATOR(fc,model) returns the approximation
+%APPROXIMATIONOPERATOR Fourier approximation operator/matrix
+%   [A,AS] = APPROXIMATIONOPERATOR(FC,MODEL) returns the approximation
 %   operator A (and its adjoint AS) of the forward operator specified in
-%   model, in the Fourier basis (e_k), -fc <= k <= fc, where e_k: x ->
-%   exp(-2i*pi*k*x)
+%   MODEL, in the Fourier basis [exp(-2i*pi*<k,.>)], -FC <= k <= FC.
 %
-%   fc:     cutoff frequency
-%   model:  model.fop       - forward operator type (convolution |
-%           subsampled-convolution | foveation)
-%           model.kernel    - kernel type (Gaussian | Dirichlet)
-%           model.kparam    - specifies the variance for Gaussian kernel
-%           model.gsize     - size of the subsampling grid , for subsampled
-%           measurements (only for subsampled-convolution or foveation)
+%   [...,S] = APPROXIMATIONOPERATOR(FC,MODEL) additionally returns the
+%   operator S = A'A.
 %
-%   For more info on the approximation matrix, see
-%   Catala, P., Duval, V. and Peyré, G., A low-rank approach to
-%   off-the-grid sparse super-resolution
+%   [...,AMAT,ASMAT] = APPROXIMATIONOPERATOR(FC,MODEL) also returns the
+%   corresponding matrices in the canonical basis.
+%
+%   A takes as input a vector of size (2*FC+1) and returns a vector of size
+%   N, where N depends on the MODEL.
+%
+%   MODEL has the following fields:
+%       FOP     - convolution | subsampled-convolution | foveation
+%
+%       KERNEL  - type      - Gaussian | Dirichlet
+%               - cov       - covariance (standard deviation) (for Gaussian)
+%
+%       GRID    - shape     - lattice | circle | disc | ring
+%               - size      - size of the grid
+%
+%   For further detaiks, see [Catala, P., Duval, V. and Peyré, G., A 
+%   low-rank approach to off-the-grid sparse super-resolution]
 
 % n = 2*fc + 1;
 %Xf = FreqMesh(fc);
@@ -69,6 +77,10 @@ switch model.fop
         
         N = 2048;
         t = (0:(N-1))'/N;
+        
+        if 2*fc >= L
+            error('grid is insufficiently large wrt fc (TODO)');
+        end
 
 % for debug purpose ---
 %         Amat = zeros(L,2*fc+1);

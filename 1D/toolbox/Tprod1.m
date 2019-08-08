@@ -10,13 +10,12 @@ nfft = nfft + 3;
 
 d = 1;
 
-s = size(X,1);
+[m,r] = size(X);
 
-pad_size = [ 2*s - 1, size(X,2) ];
-PX       = Pad1(X, pad_size);
+PX       = Pad1(X, [2*m-1, r]);
 
 Cprod = ifft( fft( T ) .* fft( PX ) );
-TX    = Restr1( Cprod, s);
+TX    = Restr1( Cprod, m);
 
 
 end

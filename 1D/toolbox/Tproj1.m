@@ -11,12 +11,11 @@ nfft = nfft + 2;
 
 d = 1;
 
-n = size(U);
+[m,r] = size(U);
 
-pad_size = [ 2 * n(1:d) - 1, size(U,d+1) ];
-PU       = Pad1(U, pad_size);
+PU       = Pad1(U, [2*m-1,r]);
 
-TU = sum( ifft( abs( fft( PU ) ).^2 ) ./ Dnumel1(n), d+1 );
+TU = sum( ifft( abs( fft( PU ) ).^2 ) ./ Dnumel1(m), d+1 );
 
 end
 

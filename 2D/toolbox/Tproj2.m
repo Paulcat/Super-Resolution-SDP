@@ -1,27 +1,30 @@
-function [TU] = Tproj2(U1)
+function TU = Tproj2(ell,U)
 %TPROJ2 Projection on 2D generalized Toeplitz matrices
-%   TU = TPROJ2(U) is an array containing the diagonal values of the
-%   generalized-Toeplitz projection of UU*
+%   TU = TPROJ2(U) returns the "diagonal" values of the generalized
+%   Toeplitz matrix closest to UU*
 %
-%   The input U must be tensor shaped, of size (n1 x n2 x r). The resulting
-%   array TU is of size ( (2*n1-1) x (2*n2-1) ).
-%   Actually, the code works only if n1 = n2.
+%   U1 is a matrix of size PROD(M) x r, with M = 2ELL+1, and TU is an array
+%   of size (2M(1)-1) x ... x (2M(d)-1) containing all distinct diagonal
+%   values, sorted in a fft-friendly order
 %
-%   TODO: ordering??
+%   Works only if ELL(1) = ... = ELL(d)
+%
+%   See also TPROD2
 
-d = 2; % dimension
+d = length(ell); % dimension
 
-n = size(U1);
-
-
-% if sum(diff(n(1:d))) ~= 0
+% if sum(diff(ell)) ~= 0
 %     error('TODO')
 % end
 
-pad_size = [ 2 * n(1:d) - 1, size(U1,d+1) ];
-pad_U1   = Pad2(U1, pad_size);
+r = size(U,2);
+m = 2*ell+1;
 
-TU = sum( ifft2( abs( fft2( pad_U1 ) ).^2 ) ./ Dnumel2(n), d+1 );
+%U = reshape(U, [m,r]);
+%PU   = Pad2(ell, U, [2*m-1,r]);
+PU = Pad2(ell, U, 2*m-1);
+
+TU = sum( ifft2( abs( fft2( PU ) ).^2 ) ./ Dnumel2(m), d+1 );
 
 
 end

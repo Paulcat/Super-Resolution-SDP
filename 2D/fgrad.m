@@ -1,54 +1,55 @@
-function [g,G0] = fgrad(ell,y,lambda,rho,gam,A,AS)
-%FGRAD_SR Computes the gradient of toeplitz-penalized sdp-blasso objective
-%   [g,G0] = COMPUTE_FGRAD(fc,y,lambda,rh,gam,A,AS) outputs:
-%       g  - gradient, with low-rank storage: g(U,h) = < Gradf(U*U'), h >
-%       G0 -
+function [G,G0] = fgrad(ell,y,la,rho,gam,As,AsA)
+%FGRAD gradient of the objective
+%   [G,G0] = FGRAD(ELL,Y,LA,RHO,GAM,AS,ASA) computes the gradient of the
+%   objective f(R,Z,T):
+%   
+%       T + tr(R)/N + 1/(2*LA)*||Y-A(Z)||_H^2 + 1/(2*RHO)*||R-Toep(R)||^2
 %
-%   The objective reads
-%   f(R,z,t) = t + tr(R)/m + 1/(2*la)*||y-Az||_H^2 + 1/(2*rho)*||R-Toep(R)||^2
+%   so that G(U,H) = gradf(UU',Z,T) * H.
 %
-%   Inputs:
-%       ell    - order in the Lasserre hierarchy (variable R is of size
-%       (2*ell+1)^2. ell should be greater than the cutoff frequency fc
-%       y      - measurements
-%       lambda - blasso regularization parameter
-%       rho    - toeplitz penalization parameter
-%       gam    - constant for the Hilbert space norm
-%       A, AS  - approximation operator (and adjoint)
+%   Everything is expressed in terms of A* (AS) and A*A (ASA). GAM is a 
+%   constant for the Hilbert space norm.
+%
+%   ELL is a vector specifying the size of the variable U, ie U has size
+%   (PROD(2ELL+1) + 1) x r. H has size (PROD(2ELL(1)+1) + 1) x l.
+%
+%   See also FGRADU, FOBJ
+
+debug = 0;
 
 d   = 2;
 m   = 2*ell + 1;
 N   = prod(m);
 
-f0  = 2*lambda / gam / norm(y, 'fro')^2; % obkective normalization
-ASy = AS(y);
-G0  = 1/(4*N) + 1/(2*lambda^2) * sum( abs(ASy).^2 ) + 1/4;
+f0  = 2*la / gam / norm(y, 'fro')^2; % objective normalization
+Asy = As(y);
 
+% helpers
 flat = @(x) x(:);
+z = @(U) U(1:N,:) * U(N+1,:)';
+Dz = @(U) 1/2 * flat(-Asy + AsA( z(U) ) );
 
-% Tensor-shaped variables z and U
-z    = @(U) MatToTen( U(1:end-1,:) * U(end,:)', m );
-dz   = @(U) 1/2 *  (  -ASy   +  AS( A( z(U) ) )  );
-Tens = @(U) MatToTen( U(1:end-1,:), m );
+% gradient
+G_bl1 = @(U,h) 1/2/N * h(1:N,:) + 1/la * Dz(U) * h(end,:);
+G_bl2 = @(U,h) 1/2 * h(end,:) + 1/la * Dz(U)' * h(1:N,:);
+G_Tp = @(U1,h1) 1/rho * ( U1*(U1'*h1) - Tprod2(ell,Tproj2(ell,U1), h1) );
 
+G = @(U,h) f0 * [G_bl1(U,h) + G_Tp(U(1:N,:),h(1:N,:)); G_bl2(U,h)];
 
-% TV norm term
-g_tv      = @(   h) 1/2      * [ h(1:end-1,:) / N ; h(end,:) ];
+if debug
+    G = @(U,h) f0 * [G_bl1(U,h); G_bl2(U,h)];
+    %G = @(U,h) f0 * [G_Tpen(U(1:N,:),h(1:N,:)); zeros(1,size(h,2))];
+    %G = @(U,h) Tprod2(ell,Tproj2(ell,U),h);
+end
 
-% Data fitting term
-g_datafit = @(U, h) 1/lambda * [ flat(dz(U)) * h(end,:) ; flat(dz(U))' * h(1:end-1,:) ];
-
-% Toeplitz penalization term
-g_Tpen1   = @(U, h) 1/rho    * U(1:end-1,:) * ( U(1:end-1,:)' * h(1:end-1,:) );
-g_Tpen2   = @(U, h) -1/rho   * TenToMat( Tprod2( Tproj2( Tens(U) ), Tens(h) ) );
-g_Tpen    = @(U, h) [ g_Tpen1(U,h) + g_Tpen2(U,h); zeros(1, size(h,2)) ];
-
-
-g = @(U,h) f0 * ( g_tv(h) + g_datafit(U,h) + g_Tpen(U,h) );
-%g = @(U,h) g_datafit(U,h);
-
-%g = @(U) 2 * C0 * ( g_tv(U) + g_datafit(U,U) + g_Tpen(U,U) );
-%G = @(U) 2 * g(U,U);
+% gradient in 0
+G0  = 1/(4*N) + 1/(2*la^2) * sum( abs(Asy).^2 ) + 1/4;
 
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%y = reshape(y,m); 
+%reshT = @(x) reshape(x, [m,size(x,2)]);
+%z = @(U) reshT( U(1:N,:) * U(N+1,:)' );
+%Dz = @(U) 1/2 * flat(-ASy + AS( A( z(U) ) ));

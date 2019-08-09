@@ -1,10 +1,15 @@
-function [mu,nu] = perform_linesearch_step(fc,Ut,vt,blasso)
+function [mu,nu] = perform_linesearch_step(fc,Ut,vt,ls)
 %PERFORM_LINESEARCH_STEP linesearch step in ffw algorithm
 %   [mu,nu] = PERFORM_LINESEARCH_STEP(fc,U,v,blasso) returns the solution
 %   of min_(mu,nu) f( mu*(U*U') + nu*(v*v') )
 
 
-[cxx, cyy, cxy, cx, cy] = lsCoeffs(fc,Ut,vt,blasso);
+%[cxx, cyy, cxy, cx, cy] = lsCoeffs(fc,Ut,vt,ls);
+coeffs = num2cell(ls(Ut,vt));
+[cxx, cyy, cxy, cx, cy] = deal(coeffs{:});
+
+%fprintf('c11: %d, c12:%d, c22: %d, c1: %d, c2: %d\n', cxx,cxy,cyy,cx,cy);
+
 
 denom = 4*cxx*cyy - cxy^2;
 num1  = cxy*cy - 2*cyy*cx;
@@ -99,9 +104,11 @@ bb = X(2);
 
 
 if abs(aa-mu) > 1e-05 || abs(bb-nu) > 1e-05
-    f = fobj(fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.A);
-    test1 = f([aa*Ut bb*vt]);
-    test2 = f([mu*Ut nu*vt]);
+    %f = fobj(fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.As,blasso.AsA);
+    %test1 = f([aa*Ut bb*vt]);
+    %test2 = f([mu*Ut nu*vt]);
+    test1 = cxx*aa^2 + cxy*aa*bb + cyy*bb^2 + cx*aa^2 + cy*bb^2;
+    test2 = cxx*mu^2 + cxy*mu*nu + cyy*nu^2 + cx*mu^2 + cy*nu^2;
     if test1 < test2
         warning('debugging: cvx did best in the linesearch');
     end

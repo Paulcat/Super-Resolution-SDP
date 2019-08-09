@@ -59,7 +59,7 @@ else % eVal1 is the largest eigenvalue: the lowest is found using PI on (G - eVa
         niter2 = niter2 + 1;
     end
     
-    eVal = v'*Gprod(v) / eVal1;
+    eVal = v'*Gprod(v);
     eVec = v;
 
     

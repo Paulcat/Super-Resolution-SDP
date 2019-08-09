@@ -1,5 +1,5 @@
 function [U,info] = ffw(fc,blasso,options)
-%FWSDP Frank-Wolfe solver for SDP-BLASSO
+%FFW Frank-Wolfe solver for SDP-BLASSO
 %   FWSDP(fc,blasso,options) solves the following semidefinite program:
 %
 %   min f = 1/2*(t+tr(R)/m) + 1/2/la*|y-A(z)|_H^2 + 1/2/rho*|R - Toep(R)|^2
@@ -15,6 +15,9 @@ function [U,info] = ffw(fc,blasso,options)
 %   The SDP is solved using a Frank-Wolfe approach, described in
 %       *A Low-Rank Approach to Off-The-Grid Sparse Super-Resolution*
 %       P. Catala, V. Duval and G. Peyre
+
+
+debug = 0;
 
 
 % Setting options
@@ -76,28 +79,37 @@ end
 % *** 0. Initialization ***
 % -------------------------
 tic;
-U0     = zeros( prod(m) + 1, 1 ); U = U0;
+U0     = zeros( prod(m) + 1, 1 ); U = U0; % primal variable
+%mu0L   = zeros( prod(m), 1); muL = mu0L;
+%mu0T   = zeros( 2*prod(m)-1, 1); muT = mu0T; % dual variables
 E0     = F(U0); E = E0;
-%D0     = 2 * E0;
-D0 = 2 * prod(m) * E0;
+D0     = 2 * E0;
+%D0 = 2 * prod(m) * E0;
 niter  = 0;
 v0     = ones(prod(n)+1, 1) / sqrt(prod(n)+1); % initial vector for PI
 n_PI   = [];
 n_BFGS = [];
 
-sqinvOm = [ n(1) * ones(prod(n), 1); 1 ]; % TODO: handle non-equal dimensions
+Om = [ n(1) * ones(prod(n), 1); 1 ]; % TODO: handle non-equal dimensions
 %sqinvOm = ones(prod(n)+1,1);
-
-
-
 
 
 
 % *** 1. LMO step ***
 % -------------------
 % precompute gradient for lmo
-GfU = blasso.gradU_handle(U);
-GLMO = @(h) sqinvOm .* GfU( sqinvOm .* h );
+%G1 = blasso.gradHandle1(U); Glmo1 = Om1 .* G1( Om1.*h1, Ome.*he );
+%G2 = blasso.gradHandle2(U); Glmo2 = Ome .* G2( Om1.*h1, Ome.*he );
+Glmo = blasso.gradHandle(U);
+GLMO = @(h) Om .* Glmo(Om .* h);
+
+% added for the CGAL algorithm
+% NOTE useless at this step since dual variable is initialized at zero...
+% ----------------------------
+%GLU = blasso.LgradU_handle(muL,muT,U);
+%GfU2 = @(h) GfU(h) + GLU(h);
+%GLMO2 = @(h) sqinvOm .* GfU2( sqinvOm .* h );
+% ----------------------------
 
 time1 = toc;
 [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
@@ -108,7 +120,30 @@ if eValm > 0
     warning('Minimal eigenvalue is positive');
     %eVecm = zeros(size(eVecm));
 end
-eVecm = sqrt(D0) * (sqinvOm .* eVecm);
+eVecm = sqrt(D0) * (Om .* eVecm);
+
+if debug
+    AsA = blasso.AsA;
+    As = blasso.As;
+    la = blasso.lambda;
+    rho = blasso.rho;
+    gam = blasso.ga;
+    y = blasso.y;
+    
+    C0 = 2*la/gam/norm(y,'fro')^2;
+    U1 = U(1:m,:);
+    z = U1 * U(m+1,:)';
+    T = Tproj1(U1);
+    PTU = Toeplitz_mat(T);
+    M = 1/2/m * eye(m) + 1/rho*(U1*U1'-PTU);
+    v = 1/2/la * ( AsA(z) - As(y) );
+    
+    Grad = C0 * [M,v;v',1/2];
+    Grad2 = diag(Om) * Grad * diag(Om);
+    
+    eValm
+    min(eig(Grad2))
+end
 
 % duality gap
 UGfU = U'     * g(U, U    );
@@ -122,7 +157,7 @@ gap  = real( trace(UGfU) - eGfe );
 % Display infos
 % -------------
 if strcmp(display, 'on')
-    fprintf('%-2d  %-+.4e  %-+.2e  -\t -\t -\n', niter, E(end), gap)
+    fprintf('%-2d  %-+.4e  %-+.2e  -\t -\t -\t -\n', niter, E(end), gap)
 end
 
 
@@ -135,7 +170,7 @@ while (gap >= tol && niter < maxIter)
     
     % *** 2. Line-search ***
     % ----------------------
-    [mu,nu] = perform_linesearch_step(fc,U,eVecm,blasso);
+    [mu,nu] = perform_linesearch_step(fc,U,eVecm,blasso.ls);
     
     
     
@@ -148,6 +183,8 @@ while (gap >= tol && niter < maxIter)
     % TODO: est-ce que si à une étape de l'algo on satisfait al contrainte
     % toeplitz, ca reste vrai jusqu'à la fin de l'algo??
     
+    %test_functionals(F,g,blasso.gradHandle(U),U,fc,fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.As,blasso.AsA);
+    
     
     % *** 4. BFGS step ***
     % --------------------
@@ -156,6 +193,16 @@ while (gap >= tol && niter < maxIter)
     n_BFGS = [n_BFGS; output.iterations];
     time2 = toc-time2;
     %n_BFGS = 0;
+    
+    
+    % added for CGAL algorithm
+    % ------------------------
+    % *** 5. Dual update ***
+    %theta = 1/(niter+1);
+    %muL = [muL, sqrt(theta) * U(1:end-1,:)];
+    %muT = muT + theta * Tproj1(U(1:end-1,:));
+    % ------------------------
+    
 
     
     % One iteration done: update monitors
@@ -171,20 +218,44 @@ while (gap >= tol && niter < maxIter)
     
     %plot(log10(E)); drawnow;
     E2 = E(1:2:end);
-    if abs(E2(end) - E2(end-1)) < 1e-9
+    if abs(E2(end) - E2(end-1)) < 1e-16
         % stopping criterion in terms of objective decrease
+        sprintf('energy did not decrease at last step')
         break;
     end
     
     
     % *** 1. LMO step ***
     % -------------------
-    GfU = blasso.gradU_handle (U);
-    GLMO = @(h) sqinvOm .* GfU( sqinvOm .* h );
+    GfU = blasso.gradHandle (U);
+    GLMO = @(h) Om .* GfU( Om .* h );
+    
+    % added for the CGAL algorithm
+    % ----------------------------
+    %GLU = blasso.LgradU_handle(muL,muT,U);
+    %GfU2 = @(h) GfU(h) + GLU(h);
+    %GLMO2 = @(h) sqinvOm .* GfU2( sqinvOm .* h );
+    % ----------------------------
     
     time1 = toc;
     [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
     time1 = toc - time1;
+    
+    if debug
+        %test_functionals(F,g,GfU,U,fc,fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.As,blasso.AsA);
+        U1 = U(1:m,:);
+        z = U1 * U(m+1,:)';
+        T = Tproj1(U1);
+        PTU = Toeplitz_mat(T);
+        M = 1/2/m * eye(m) + 1/rho*(U1*U1'-PTU);
+        v = 1/2/la * ( AsA(z) - As(y) );
+        
+        Grad = C0 * [M,v;v',1/2];
+        Grad2 = diag(Om) * Grad * diag(Om);
+        
+        eValm
+        min(real(eig(Grad2)))
+    end
     
     %fprintf('eValm: %.5d, trace: %.5d\n', eValm, -1/2 * real(trace(U'*G(U))) );
     if eValm > 0
@@ -192,7 +263,7 @@ while (gap >= tol && niter < maxIter)
         1/2 * trace(U'*G(U))
         %eVecm = zeros(size(eVecm));
     end
-    eVecm = sqrt(D0) * (sqinvOm .* eVecm);
+    eVecm = sqrt(D0) * (Om .* eVecm);
     
     %norm(U*U','fro')
     %norm(eVecm*eVecm','fro')
@@ -212,7 +283,7 @@ info.nBFGS = sum(n_BFGS);
 info.nfft  = nfft;
 
 
-U(:,1) = []; % first columns is only zeros
+%U(:,1) = []; % first columns is only zeros
 
 
 if strcmp(display, 'on')
@@ -237,6 +308,7 @@ opt_bfgs.Method          = 'lbfgs';
 opt_bfgs.DerivativeCheck = 'off';
 opt_bfgs.Corr            = 15;
 opt_bfgs.Damped          = 0;
+opt_bfgs.numDiff         = 0; % use-provided gradient
 end
 
 function opt_lmo = set_lmo_options(options)

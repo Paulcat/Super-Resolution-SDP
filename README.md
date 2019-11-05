@@ -10,6 +10,8 @@ Content
 	- minFunc/: bfgs code (c) Mark Schmidt
 	- toolbox/: various mathematical tools
 	- perform_*_step: FFW algorithm steps
+	- mvprony: extraction from moments procedure
 * examples/: Matlab scripts illustrating the usage of FFW
+	- _USAGE_: select one example from the SET UP section, then run the ALGORITHM section
 
 

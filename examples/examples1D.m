@@ -12,7 +12,7 @@ addpath('../toolbox')
 % setup cvx -- change to your cvx location
 addpath('~/Documents/MATLAB/cvx')
 run cvx_setup.m
-g
+
 % setup bfgs
 % see: M. Schmidt. minFunc: unconstrained differentiable multivariate 
 % optimization in Matlab. 

@@ -1,4 +1,3 @@
-% * ******************************* *
 % * Super-resolution examples in 1D *
 % * ******************************* *
 
@@ -13,7 +12,7 @@ addpath('../toolbox')
 % setup cvx -- change to your cvx location
 addpath('~/Documents/MATLAB/cvx')
 run cvx_setup.m
-
+g
 % setup bfgs
 % see: M. Schmidt. minFunc: unconstrained differentiable multivariate 
 % optimization in Matlab. 
@@ -36,27 +35,50 @@ x0pos = x0(a0 >= 0, :); a0pos = a0(a0 >= 0);
 x0neg = x0(a0 < 0,  :); a0neg = a0(a0 < 0);
 
 % Fourier operator
-fc = 30;
+fc = 20;
 n = 2*fc + 1;
-[F,FS] = FourierOperator(fc);
+[F,Fs] = FourierOperator(fc);
 
 
-%% * Example 1: Foveation *
+% display grid
+N  = 512;
+dN = (0:N-1)'/N;
 
+%% * Example 1: Ideal low-pass filtering * 
+
+clear model
+model.fop = 'convolution';
+model.kernel.type = 'Dirichlet';
+
+% parameter for the Hilbert norm (in BLASSO)
+gam = 1;
+
+
+%% * Example 2: Foveation *
+
+clear model
+model.fop    = 'foveation';
+
+% kernel (Gaussian with varying std)
+model.kernel.type = 'Gaussian';
 sig = @(x) .002 + .07*abs(x-.5);
+model.kernel.cov = sig;
+
+% observation grid
 L = 256;
 dL = (0:L-1)'/L;
+model.grid.shape  = 'lattice';
+model.grid.size  = L;
 
-model.fop    = 'foveation';
-model.kernel = 'Gaussian';
-model.kparam = sig;
-model.grid   = 'lattice';
-model.gsize   = L;
+% parameter for the Hilbert norm (in BLASSO)
+gam = sqrt(1/prod(L));
+
+%% Measurements
 
 % forward operator
-[A,AS] = approximationOperator(fc,model);
+[A,As,AsA] = approximationOperator(fc,model);
 Phi  = @(x,a)  A ( reshape( F(x) * a, [n,1] ) );
-PhiS = @(dx,p) FS( dx, AS(p) );
+PhiS = @(dx,p) Fs( dx, As(p) );
 
 % measurements
 y0    = Phi(x0,a0);
@@ -65,29 +87,38 @@ wn    = randn(size(y0));
 y     = y0 + sigma * norm(y0) * wn;
 
 clf, hold on
-plot(dL,real(y),'LineWidth',2);
+
 stem(x0pos,a0pos,'r.','MarkerSize',18);
 stem(x0neg,a0neg,'b.','MarkerSize',18);
+
+if strcmp(model.fop, 'convolution')
+    % for convolution, y lives in Fourier space: plot Fs(y)
+    plot(dN,Fs(dN,y),'LineWidth',2);
+else
+    plot(dL,real(y),'LineWidth',2);
+end
 
 %% Solve BLASSO with FFW
 
 % Blasso parameters
-N  = 512;
-dN = (0:N-1)'/N; % display grid step
 Cl = norm( PhiS(dN,y), 'inf' );
-lambda = Cl * 1e-3;
-rho = 1e2;
-gam = sqrt(1/prod(L));
+Cr = 1;
+la = Cl * 5e-3;
+rho = Cr * 1e1;
 
-[blasso.obj, blasso.f0] =      fobj (   fc,y,lambda,rho,gam,A   );
-blasso.grad             =      fgrad(   fc,y,lambda,rho,gam,A,AS);
-blasso.gradU_handle     = @(U) fgradU(U,fc,y,lambda,rho,gam,A,AS);
-blasso.y                = y;
-blasso.lambda           = lambda;
-blasso.rho              = rho;
-blasso.ga               = gam;
-blasso.A                = A;
-blasso.AS               = AS;
+% main parameters
+blasso.As  = As;
+blasso.AsA = AsA;
+blasso.y   = y;
+blasso.la  = la;
+blasso.rho = rho;
+blasso.ga  = gam;
+
+% objective and gradient
+blasso.obj        =      fobj (   n,y,la,rho,gam,As,AsA);
+blasso.grad       =      fgrad(   n,y,la,rho,gam,As,AsA);
+blasso.gradHandle = @(U) fgradU(U,n,y,la,rho,gam,As,AsA);
+blasso.ls         = ls_coeffs(n,y,la,rho,gam,As,AsA);
 
 % FFW options
 options.maxIter     = 10;
@@ -98,7 +129,7 @@ options.lmoMaxIter  = 1000;
 options.tol         = 1e-6; % tolerance on dual gap
 
 U = ffw(fc,blasso,options);
-p = 1/lambda * ( y - A( U(1:end-1,:) * U(end,:)' ) );
+p = 1/la * ( y - A( U(1:end-1,:) * U(end,:)' ) );
 
 %% Support reconstruction
 
@@ -113,17 +144,20 @@ axis tight
 
 % support extraction procedure
 U1 = U(1:end-1,:); % matrix main block
-x1 = extract_spikes(U1,fc);
+%x1 = extract_spikes(U1,fc);
+options.mode_debug = 0;
+options.tol = 1e-3;
+x1 = mvprony(U1*U1',1,options);
 
 % amplitude recovery
 Xf = FreqMesh(fc);
-[~,~,Amat,ASmat] = approximationOperator(fc,model);
+[~,~,~,Amat,Asmat] = approximationOperator(fc,model);
 flat = @(x) x(:);
 F_e = exp( -2i*pi*( Xf(:) * x1(:)' ) );
-s0 = sign(real(F_e' * flat(AS(p)) ));
+s0 = sign(real(F_e' * flat(As(p)) ));
 Phi_e = Amat * F_e;
-PhiS_e = F_e' * ASmat;
-a1 = real( Phi_e\y(:) - lambda * pinv(PhiS_e*Phi_e)*s0 );
+PhiS_e = F_e' * Asmat;
+a1 = real( Phi_e\y(:) - la * pinv(PhiS_e*Phi_e)*s0 );
 
 x1pos = x1(a1 >= 0,:); a1pos = a1(a1 >= 0);
 x1neg = x1(a1 < 0 ,:); a1neg = a1(a1 < 0 );

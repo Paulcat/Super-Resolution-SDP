@@ -23,7 +23,7 @@ solver = getoptions(options, 'solver', 'primal');
 
 
 y   = blasso.y;
-la  = blasso.lambda;
+la  = blasso.la;
 gam = blasso.ga;
 C0  = blasso.f0;
 A   = blasso.A;

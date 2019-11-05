@@ -1,4 +1,4 @@
-function coeffs = ls_coeffs(ell,y,la,rho,gam,As,AsA)
+function coeffs = ls_coeffs(m,y,la,rho,gam,As,AsA)
 %LSCOEFFS_SR Computes line-search coefficients for toeplitz-penalized
 %sp-blasso objective
 %   [c11,c22,c12,c1,c2] = LSCOEFFS_SR(fc,U,v,blasso) returns the
@@ -12,7 +12,7 @@ function coeffs = ls_coeffs(ell,y,la,rho,gam,As,AsA)
 Asy = As(y);
 C0 = 2*la/gam*norm(y,'fro')^2; % TODO
 
-m = 2*ell+1;
+%m = 2*ell+1;
 
 
 z = @(U) U(1:m,:) * U(m+1,:)';

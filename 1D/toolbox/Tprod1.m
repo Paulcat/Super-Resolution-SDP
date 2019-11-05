@@ -8,14 +8,13 @@ function [TX] = Tprod1(T,X)
 global nfft
 nfft = nfft + 3;
 
-d = 1;
+%[m,r] = size(X);
 
-[m,r] = size(X);
-
-PX       = Pad1(X, [2*m-1, r]);
+%PX       = Pad1(X, [2*m-1, r]);
+PX = Pad1(X);
 
 Cprod = ifft( fft( T ) .* fft( PX ) );
-TX    = Restr1( Cprod, m);
+TX    = Restr1(Cprod);
 
 
 end

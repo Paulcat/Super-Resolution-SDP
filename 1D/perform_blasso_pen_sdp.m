@@ -18,7 +18,7 @@ m = n;
 solver = getoptions(options,'solver','primal');
 
 y   = blasso.y;
-la  = blasso.lambda;
+la  = blasso.la;
 rho = blasso.rho;
 gam = blasso.ga;
 C0  = blasso.f0;

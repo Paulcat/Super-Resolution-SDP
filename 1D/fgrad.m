@@ -1,5 +1,5 @@
-function [G,G0] = fgrad(ell,y,la,rho,gam,As,AsA)
-%FGRAD gradient of the objective
+function [G,G0] = fgrad(n,y,la,rho,gam,As,AsA)
+%FGRAD gradient of the objective (in 1D)
 %   [G,G0] = FGRAD(ELL,Y,LA,RHO,GAM,AS,ASA) computes the gradient of the
 %   objective f(R,Z,T):
 %
@@ -10,30 +10,29 @@ function [G,G0] = fgrad(ell,y,la,rho,gam,As,AsA)
 %   Everything is expressed in terms of A* (AS) and A*A (ASA). GAM is a 
 %   constant for the Hilbert space norm.
 %
-%   ELL specifies the size of the variable U, ie U has sizee (2ELL+1) x r.
-%   H has size (2ELL+1) x l.
+%   N specifies the main size of variable U
 %
 %   See also FOBJ, FGRADU
 
 debug = 0;
 
-m = 2*ell + 1;
+%n = 2*ell + 1;
 
 Asy = As(y);
 f0  = 2*la / gam / norm(y, 'fro')^2; % objective normalization
-G0 = 1/(4*prod(m)) + 1/(2*la^2) * sum( abs(Asy).^2 ) + 1/4;
+G0 = 1/(4*prod(n)) + 1/(2*la^2) * sum( abs(Asy).^2 ) + 1/4;
 
 % helpers
-z  = @(U) U(1:m,:) * U(m+1,:)';
+z  = @(U) U(1:n,:) * U(n+1,:)';
 Dz = @(U) 1/2 * (-Asy + AsA( z(U) ));
 %Dz = @(U) 1/2 * (z(U) - y);
 
 % gradient
-G_bl1 = @(U,h) 1/2/m * h(1:m,:) + 1/la * Dz(U) * h(m+1,:);
-G_bl2 = @(U,h) 1/2 * h(m+1,:) + 1/la * Dz(U)' * h(1:m,:);
+G_bl1 = @(U,h) 1/2/n * h(1:n,:) + 1/la * Dz(U) * h(n+1,:);
+G_bl2 = @(U,h) 1/2 * h(n+1,:) + 1/la * Dz(U)' * h(1:n,:);
 G_Tp = @(U1,h1) 1/rho * ( U1*(U1'*h1) - Tprod1(Tproj1(U1), h1) );
 
-G = @(U,h) f0 * [G_bl1(U,h) + G_Tp(U(1:m,:),h(1:m,:)); G_bl2(U,h)];
+G = @(U,h) f0 * [G_bl1(U,h) + G_Tp(U(1:n,:),h(1:n,:)); G_bl2(U,h)];
 %G = @(U,h) f0 * [1/la*Dz(U)*h(m+1,:); 1/la*Dz(U)'*h(1:m,:)];
 %G = @(U,h) f0 * [1/rho * U(1:m,:)*(U(1:m,:)'*h(1:m,:)); zeros(1,size(h,2))];
 %G = @(U,h) f0 * [1/rho * Tprod1(Tproj1(U(1:m,:)),h(1:m,:)); zeros(1,size(h,2))];

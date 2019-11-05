@@ -1,6 +1,6 @@
-function [F,f0] = fobj(ell,y,la,rho,gam,As,AsA)
-%FOBJ objective function
-%   [F,F0] = FOBJ(ELL,Y,LA,RHO,GAM,AS,ASA) computes the objective f(R,Z,T):
+function [F,f0] = fobj(n,y,la,rho,gam,As,AsA)
+%FOBJ objective function (in 1D)
+%   [F,F0] = FOBJ(N,Y,LA,RHO,GAM,AS,ASA) computes the objective f(R,Z,T):
 %
 %       T + tr(R)/M + 1/(2*LA)*||Y-A(Z)||_H^2 + 1/(2*RHO)*||R-Toep(R)||^2
 %
@@ -9,19 +9,19 @@ function [F,f0] = fobj(ell,y,la,rho,gam,As,AsA)
 %   The objective is expressed in terms of A* (AS) and A*A (ASA).
 %   GAM is a constant for the Hilbert space norm.
 %
-%   ELL specifies the size of the variable U, ie U has size (2ELL+1) x r.
+%   N specifies the main size of U
 %
 %   See also FGRAD
 
 debug = 0;
 
-m  = 2*ell + 1;
+%m  = 2*ell + 1;
 
 % helpers
 fro2  = @(x) norm(x,'fro')^2;
-normT = @(T) sum( Dnumel1(m) .* abs(T).^2 );
-z     = @(U) U(1:m,:) * U(m+1,:)';
-R     = @(U) U(1:m,:)' * U(1:m,:);
+normT = @(T) sum( Dnumel1(n) .* abs(T).^2 );
+z     = @(U) U(1:n,:) * U(n+1,:)';
+R     = @(U) U(1:n,:)' * U(1:n,:);
 
 
 f0  = 2*la / gam / fro2(y);
@@ -29,13 +29,10 @@ Asy = As(y);
 
 
 % objective
-F_bl = @(U) 1/2/m * fro2(U(1:m,:)) + 1/2 * fro2(U(m+1,:)) + ...
+F_bl = @(U) 1/2/n * fro2(U(1:n,:)) + 1/2 * fro2(U(n+1,:)) + ...
     1/2/la * ( gam*fro2(y) - 2*real(Asy'*z(U)) + real(z(U)'*AsA(z(U))) );
 
-% F_bl = @(U) 1/2/m * fro2(U(1:m,:)) + 1/2 * fro2(U(m+1,:)) + ...
-%     1/2/la * fro2(y - z(U));
-
-F_Tp = @(U) 1/2/rho * ( fro2(R(U)) - normT( Tproj1(U(1:m,:)) ) );
+F_Tp = @(U) 1/2/rho * ( fro2(R(U)) - normT( Tproj1(U(1:n,:)) ) );
 
 F = @(U) f0 * (F_bl(U) + F_Tp(U));
 %F = @(U) f0 * 1/2/rho * fro2(R(U));

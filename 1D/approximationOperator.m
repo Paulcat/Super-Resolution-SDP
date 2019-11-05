@@ -101,8 +101,9 @@ switch model.fop
 %             Amat(j,:) = conj(Fj);
 %         end
 % ----------------------
-
-        switch kernel.mode
+        
+        mode = getoptions(kernel,'mode',1); % option for foveation
+        switch mode
             case 1
                 phij  = @(x,s) exp( -(s - x).^2 ./ (2*sig(x).^2) );
                 phij1 = @(x,s) phij(x-1,s) + phij(x,s) + phij(x+1,s);

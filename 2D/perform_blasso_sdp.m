@@ -26,24 +26,24 @@ indicator = Pad2(ones(n),m);
 I         = indicator(:) > 0;
 
 y   = blasso.y;
-la  = blasso.lambda;
+la  = blasso.la;
 gam = blasso.ga;
 C0  = blasso.normalization;
-D   = blasso.D; %added
+%D   = blasso.D; %added
 
-L = size(D,2); %added
+%L = size(D,2); %added
 
 A   = blasso.A;
 
 %colex = gencolex(fc); %added
 
-cvx_solver    mosek
+cvx_solver    SDPT3
 cvx_precision high
 
 switch solver
     case 'primal'
         T = zeros(m.^2);
-        Psi = zeros(m.^2,L);
+        %Psi = zeros(m.^2,L);
         
         cvx_begin sdp %quiet
         variable R(prod(m)+1, prod(m)+1) hermitian

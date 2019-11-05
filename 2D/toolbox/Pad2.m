@@ -5,8 +5,7 @@ function PX = Pad2(ell,X,p)
 %   size P(1) x P(2) is th result of outer-zero-padding the columns of X,
 %   seen as squared matrices.
 %
-%   I leave the result under its tensor form as PAD2 is excusively used as
-%   an intermediary step: see e.g. Tproj2, Tprod2
+%   Internal use only (see e.g. Tproj2, Tprod2)
 %
 %   See also RESTR2. Called by TPROD2, TPROJ2, DNUMEL2
 

@@ -42,7 +42,6 @@ reshn = @(x) reshape(x,n);
 
 kernel = model.kernel;
 
-
 switch model.fop
     case 'convolution'
         w = compute_weights(fc,kernel);
@@ -127,7 +126,8 @@ switch model.fop
         Nf = 100; % fft approximation (as Riemann sum)
         [Y,X] = meshgrid( (0:(Nf-1))' / Nf );
         
-        switch kernel.mode
+        mode = getoptions(kernel,'mode',1); % option for foveation
+        switch mode
             
             case 1 % phig = @(xg,yg) exp( -1/2 * iSig(X,Y,X-sx,Y-sy) )
                 iCov = covmat(cov_type);

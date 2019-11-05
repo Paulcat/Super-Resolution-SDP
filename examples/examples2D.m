@@ -32,8 +32,8 @@ addpath('../minFunc/autoDif')
 
 s  = 6; % sparsity
 
-x0 = [.4538 .8314; .4324 .8034; .4235 .3993; .1332 .5269]%; .3734 .4168; .3909 .6569];
-a0 = [.7559; -.6160; .9690; .2681]%; .6657; -.7876];
+x0 = [.4538 .8314; .4324 .8034; .4235 .3993; .1332 .5269];%; .3734 .4168; .3909 .6569];
+a0 = [.7559; -.6160; .9690; .2681];%; .6657; -.7876];
 
 x0pos = x0(a0 >= 0, :); a0pos = a0(a0 >= 0); npos = length(a0pos);
 x0neg = x0(a0 < 0, :); a0neg = a0(a0 < 0); nneg = length(a0neg);
@@ -53,7 +53,8 @@ clear model
 model.fop = 'convolution';
 
 model.kernel.type = 'Dirichlet';
-gam = 1;
+
+gam = 1; % constant for Hilbert space norm
 
 %% * Example 2: Gaussian convolution * 
 
@@ -118,10 +119,13 @@ view(2), colorbar, axis off
 %% Solve BLASSO with FFW
 
 % Blasso parameters
+
+% scalings
 Cl = norm( PhiS(dN,dN,y), 'inf'); % scaling for lambda
 Cr = 1; % scaling for rho
-la = Cl * 1e-3;
-rho    = Cr * 1e2;
+
+la = Cl * 1e-3; % sparse regularization
+rho    = Cr * 1e2; % toeplitz penalization
 
 % main parameters
 blasso.y      = y;

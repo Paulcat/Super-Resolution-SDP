@@ -24,6 +24,9 @@ addpath('../minFunc/minFunc/mex')
 addpath('../minFunc/autoDif')
 %addpath(genpath([pwd 'minFunc/']));
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SET UP
+
 %% synthetic data
 
 s = 4; % sparsity
@@ -53,8 +56,29 @@ model.kernel.type = 'Dirichlet';
 % parameter for the Hilbert norm (in BLASSO)
 gam = 1;
 
+%% * Example 2: Gaussian convolution *
 
-%% * Example 2: Foveation *
+clear model
+model.fop = 'convolution';
+model.kernel.type = 'Gaussian';
+model.kernel.cov = .02;
+
+gam = 1;
+
+%% * Example 3: Subsampled Gaussian convolution *
+
+clear model
+model.fop = 's-convolution';
+model.kernel.type = 'Gaussian';
+model.kernel.cov = .02;
+
+% sampling grid
+L = 64;
+dL = (0:L-1)'/L;
+model.grid.shape = 'lattice';
+model.grid.size = L;
+
+%% * Example 4: Foveation *
 
 clear model
 model.fop    = 'foveation';
@@ -64,7 +88,7 @@ model.kernel.type = 'Gaussian';
 sig = @(x) .002 + .07*abs(x-.5);
 model.kernel.cov = sig;
 
-% observation grid
+% sampling grid
 L = 256;
 dL = (0:L-1)'/L;
 model.grid.shape  = 'lattice';
@@ -72,6 +96,9 @@ model.grid.size  = L;
 
 % parameter for the Hilbert norm (in BLASSO)
 gam = sqrt(1/prod(L));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ALGORITHM
 
 %% Measurements
 
@@ -103,8 +130,9 @@ end
 % Blasso parameters
 Cl = norm( PhiS(dN,y), 'inf' );
 Cr = 1;
-la = Cl * 5e-3;
-rho = Cr * 1e1;
+
+la = Cl * 5e-3; % sparse regularization
+rho = Cr * 1e1; % toeplitz penalization
 
 % main parameters
 blasso.As  = As;

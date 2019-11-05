@@ -15,7 +15,9 @@ flatc = @(Z) [real(Z(:)); imag(Z(:))];
 Fb = @(Z) F( reshc(Z) );
 Gb = @(Z) flatc( G( reshc(Z) ) );
 
-%figure(10), checkgradient(Fb, Gb, flatc(U)); drawnow;
+%figure(10),
+%check = checkgradient(Fb, Gb, flatc(U));
+
 
 BFGS_Grad = @(Z) deal2( Fb(Z), Gb(Z) );
 

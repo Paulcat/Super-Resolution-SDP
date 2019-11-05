@@ -17,7 +17,7 @@ function [U,info] = ffw(fc,blasso,options)
 %       P. Catala, V. Duval and G. Peyre
 
 
-debug = 0;
+debug = getoptions(options,'mode_debug',0);
 
 
 % Setting options
@@ -32,11 +32,7 @@ opt_lmo  = set_lmo_options (options);
 % count number of fft calls
 global nfft
 nfft = 0;
-
-
-
-
-
+ 
 n = 2*fc + 1;
 m = n; % hierarchy order
 
@@ -59,7 +55,7 @@ if strcmp(display, 'on')
     fprintf( [  'varsize    \t: %dx%d\n'    ...
                 'lambda     \t: %.2e\n'      ...
                 'rho        \t: %.2e\n'      ...
-             ], prod(n)+1, prod(n)+1, blasso.lambda, blasso.rho       )
+             ], prod(n)+1, prod(n)+1, blasso.la, blasso.rho       )
     fprintf( 'tolerance (dgap): %.0e\n', tol    )
     fprintf( 'bfgs tolerance\t: %.0e (%d)\n', opt_bfgs.progTol, opt_bfgs.MaxIter)
     fprintf( 'PI tolerance  \t: %.0e (%d)\n', opt_lmo.tol     , opt_lmo.maxIter )
@@ -76,7 +72,7 @@ end
 
 
 
-% *** 0. Initialization ***
+% * Initialization *
 % -------------------------
 tic;
 U0     = zeros( prod(m) + 1, 1 ); U = U0; % primal variable
@@ -93,106 +89,108 @@ n_BFGS = [];
 Om = [ n(1) * ones(prod(n), 1); 1 ]; % TODO: handle non-equal dimensions
 %sqinvOm = ones(prod(n)+1,1);
 
+% % Display infos
+% % -------------
+% if strcmp(display, 'on')
+%     fprintf('%-2d  %-+.4e  %-+.2e  -\t -\t -\t -\n', niter, E(end), gap)
+% end
 
-
-% *** 1. LMO step ***
-% -------------------
-% precompute gradient for lmo
-%G1 = blasso.gradHandle1(U); Glmo1 = Om1 .* G1( Om1.*h1, Ome.*he );
-%G2 = blasso.gradHandle2(U); Glmo2 = Ome .* G2( Om1.*h1, Ome.*he );
-Glmo = blasso.gradHandle(U);
-GLMO = @(h) Om .* Glmo(Om .* h);
-
-% added for the CGAL algorithm
-% NOTE useless at this step since dual variable is initialized at zero...
-% ----------------------------
-%GLU = blasso.LgradU_handle(muL,muT,U);
-%GfU2 = @(h) GfU(h) + GLU(h);
-%GLMO2 = @(h) sqinvOm .* GfU2( sqinvOm .* h );
-% ----------------------------
-
-time1 = toc;
-[eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
-time1 = toc - time1;
-
-
-if eValm > 0
-    warning('Minimal eigenvalue is positive');
-    %eVecm = zeros(size(eVecm));
-end
-eVecm = sqrt(D0) * (Om .* eVecm);
-
-if debug
-    AsA = blasso.AsA;
-    As = blasso.As;
-    la = blasso.lambda;
-    rho = blasso.rho;
-    gam = blasso.ga;
-    y = blasso.y;
-    
-    C0 = 2*la/gam/norm(y,'fro')^2;
-    U1 = U(1:m,:);
-    z = U1 * U(m+1,:)';
-    T = Tproj1(U1);
-    PTU = Toeplitz_mat(T);
-    M = 1/2/m * eye(m) + 1/rho*(U1*U1'-PTU);
-    v = 1/2/la * ( AsA(z) - As(y) );
-    
-    Grad = C0 * [M,v;v',1/2];
-    Grad2 = diag(Om) * Grad * diag(Om);
-    
-    eValm
-    min(eig(Grad2))
-end
-
-% duality gap
-UGfU = U'     * g(U, U    );
-eGfe = eVecm' * g(U, eVecm);
-gap  = real( trace(UGfU) - eGfe );
-
-
-
-
-
-% Display infos
-% -------------
-if strcmp(display, 'on')
-    fprintf('%-2d  %-+.4e  %-+.2e  -\t -\t -\t -\n', niter, E(end), gap)
-end
-
+Gval = [];
+gap = Inf;
 
 
 %clf;
 while (gap >= tol && niter < maxIter)
     
+    % * 1. LMO *
+    Glmo = blasso.gradHandle(U);
+    GLMO = @(h) Om .* Glmo(Om .* h);
+    
+    % added for the CGAL algorithm
+    % NOTE useless at 1st step since dual variable is initialized at
+    % zero... (?)
+    % ----------------------------
+    %GLU = blasso.LgradU_handle(muL,muT,U);
+    %GfU2 = @(h) GfU(h) + GLU(h);
+    %GLMO2 = @(h) sqinvOm .* GfU2( sqinvOm .* h );
+    % ----------------------------
+    
+    time1 = toc;
+    [eVecm, eValm, eVecM, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
+    time1 = toc - time1;
+    
+    Gval = [Gval, real(eVecM'*g(U,eVecM))];
+    %GLMO2 = @(h) GLMO(h)/Gval(end);
+    %eVecm = perform_LMO_step(opt_lmo,GLMO2, v0);
     n_PI = [n_PI; infos.niter];
-
     
-    % *** 2. Line-search ***
-    % ----------------------
+    if Gval(end)/norm(U,'fro') < 1e-10
+        fprintf('gradient very close to zero: %d\n', Gval(end));
+        break;
+    end
+    
+    if debug
+        dif = @(a,b) norm(a-b,'fro')/norm(b,'fro');
+        
+        D = test_grad(U,eVecm,blasso);
+        DOm = diag(Om) * D * diag(Om);
+        [VV,DD] = eig(DOm);
+        
+        % call perform_LMO with explicit gradient multiplication
+        GLMO2 = @(h) DOm*h;
+        [evec2,eval2] = perform_LMO_step(opt_lmo,GLMO2,v0);
+        
+        nn = max(imag(diag(DD)));
+        if nn > 1e-13
+            error('gradient not Hermitian, max imaginary part of eigenvalues: %d\n',nn);
+        end
+        
+        [meval,id] = min(real(diag(DD)));
+        mevec = VV(:,id);
+        mm = norm(DOm*mevec - meval*mevec,'fro');
+        if mm > 1e-12
+            error('problem with gradient eigen decomposition, |(A-xI)v| = %d\n', mm);
+        end
+        
+        fprintf('\t checking PI\n')
+        fprintf('\t\t- fast vs matlab eig: %d\n', abs(eValm-meval)/abs(meval));
+        fprintf('\t\t- calling PI with explicit multiplication: evec: %d, eval: %d\n', dif(eVecm,evec2), dif(eValm,eval2));
+        fprintf('\t\t- verify eigen relation: %d\n', norm(DOm*eVecm - meval*eVecm,'fro')/abs(meval)); 
+        %fprintf('eValm: %.5d, trace: %.5d\n', eValm, -1/2 * real(trace(U'*G(U))) );
+    end
+    
+    if eValm > 0
+        fprintf('\n Stopping: gradient is positive, minimal eigenvalue = %d\n', eValm);
+        break;
+    end
+    eVecm = sqrt(D0) * (Om .* eVecm);
+    
+    % compute duality gap
+    UGU = U'     * g(U, U    );
+    eGe = eVecm' * g(U, eVecm);
+    gap  = real( trace(UGU) - eGe );
+    
+    
+    % * 2. FW update (with optional linesearch) *
     [mu,nu] = perform_linesearch_step(fc,U,eVecm,blasso.ls);
-    
-    
-    
-    % *** 3. FW update ***
-    % --------------------
-    U = [sqrt(mu)*U, sqrt(nu)*eVecm];
+    if mu == 0
+        U = sqrt(nu)*eVecm;
+    elseif nu == 0
+        U = sqrt(mu)*U;
+    else
+        U = [sqrt(mu)*U, sqrt(nu)*eVecm];
+    end 
     E = [E;F(U)];
     
-    
-    % TODO: est-ce que si à une étape de l'algo on satisfait al contrainte
+    % TODO: est-ce que si à une étape de l'algo on satisfait la contrainte
     % toeplitz, ca reste vrai jusqu'à la fin de l'algo??
     
-    %test_functionals(F,g,blasso.gradHandle(U),U,fc,fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.As,blasso.AsA);
     
-    
-    % *** 4. BFGS step ***
-    % --------------------
+    % * 3. BFGS step *
     time2 = toc;
     [U,flag,output] = perform_bfgs_step(U,F,G,opt_bfgs);
     n_BFGS = [n_BFGS; output.iterations];
     time2 = toc-time2;
-    %n_BFGS = 0;
     
     
     % added for CGAL algorithm
@@ -216,71 +214,35 @@ while (gap >= tol && niter < maxIter)
     end
     % -------------
     
-    %plot(log10(E)); drawnow;
     E2 = E(1:2:end);
-    if abs(E2(end) - E2(end-1)) < 1e-16
+    if abs(E2(end) - E2(end-1))/abs(E2(end)) < 1e-10
         % stopping criterion in terms of objective decrease
-        sprintf('energy did not decrease at last step')
+        sprintf('\n Stopping: energy did not decrease at last step\n')
         break;
     end
-    
-    
-    % *** 1. LMO step ***
-    % -------------------
-    GfU = blasso.gradHandle (U);
-    GLMO = @(h) Om .* GfU( Om .* h );
-    
-    % added for the CGAL algorithm
-    % ----------------------------
-    %GLU = blasso.LgradU_handle(muL,muT,U);
-    %GfU2 = @(h) GfU(h) + GLU(h);
-    %GLMO2 = @(h) sqinvOm .* GfU2( sqinvOm .* h );
-    % ----------------------------
-    
-    time1 = toc;
-    [eVecm, eValm, infos] = perform_LMO_step(opt_lmo, GLMO, v0);
-    time1 = toc - time1;
-    
-    if debug
-        %test_functionals(F,g,GfU,U,fc,fc,blasso.y,blasso.lambda,blasso.rho,blasso.ga,blasso.As,blasso.AsA);
-        U1 = U(1:m,:);
-        z = U1 * U(m+1,:)';
-        T = Tproj1(U1);
-        PTU = Toeplitz_mat(T);
-        M = 1/2/m * eye(m) + 1/rho*(U1*U1'-PTU);
-        v = 1/2/la * ( AsA(z) - As(y) );
-        
-        Grad = C0 * [M,v;v',1/2];
-        Grad2 = diag(Om) * Grad * diag(Om);
-        
-        eValm
-        min(real(eig(Grad2)))
-    end
-    
-    %fprintf('eValm: %.5d, trace: %.5d\n', eValm, -1/2 * real(trace(U'*G(U))) );
-    if eValm > 0
-        warning('Minimal eigenvalue is positive');
-        1/2 * trace(U'*G(U))
-        %eVecm = zeros(size(eVecm));
-    end
-    eVecm = sqrt(D0) * (Om .* eVecm);
-    
-    %norm(U*U','fro')
-    %norm(eVecm*eVecm','fro')
-    UGfU = U'     * g(U, U    );
-    eGfe = eVecm' * g(U, eVecm);
-    %gap    = 1/g0/D0 * real( trace(UGfU) - eGfe );
-    gap    = real( trace(UGfU) - eGfe );
     
 end
 time = toc;
 
+if niter == maxIter-1
+    fprintf('\n Stopping: maximum number of iterations reached\n');
+elseif gap < tol
+    fprintf('\n Stopping: criterion is satisfied\n');
+end
+
 
 info.E = [E; F(U)];
+info.G = Gval;
 info.time = time;
 info.nPI = sum(n_PI);
 info.nBFGS = sum(n_BFGS);
 info.nfft  = nfft;
+
+if debug
+    clf,
+    subplot(1,2,1), semilogy(1:2*(niter+1), log10(info.E)); title('E');
+    subplot(1,2,2), semilogy(1:niter+1, log10(info.G)); title('G');
+end
 
 
 %U(:,1) = []; % first columns is only zeros
